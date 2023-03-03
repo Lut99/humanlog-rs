@@ -4,7 +4,7 @@
 //  Created:
 //    12 Feb 2023, 13:39:26
 //  Last edited:
-//    12 Feb 2023, 15:12:36
+//    03 Mar 2023, 17:52:22
 //  Auto updated?
 //    Yes
 // 
@@ -77,7 +77,6 @@ pub enum ColourChoice {
     /// Evaluates to 'yes' if the given object is a TTY, or 'no' otherwise.
     Auto,
 }
-
 impl ColourChoice {
     /// Resolves this ColourChoice based on the given writer.
     /// 
@@ -119,7 +118,6 @@ pub struct LogWriter {
     /// The set of filters to allow.
     filter : Vec<Level>,
 }
-
 impl LogWriter {
     /// Default constructor for the LogWriter that initializes it for stdout.
     /// 
@@ -262,10 +260,14 @@ impl Log for HumanLogger {
             });
             // Write the module
             if self.debug == DebugMode::Debug {
+                let target: &str = record.target();
                 if let Some(module_path) = record.module_path() {
-                    log_write!(enabled, writer, " {}", Style::new().force_styling(writer.colour).dim().apply_to(module_path));
+                    // We only add if they actually differ
+                    if module_path != target {
+                        log_write!(enabled, writer, " {}", Style::new().force_styling(writer.colour).dim().apply_to(module_path));
+                    }
                 }
-                log_write!(enabled, writer, " {}]", Style::new().force_styling(writer.colour).bold().apply_to(record.target()));
+                log_write!(enabled, writer, " {}]", Style::new().force_styling(writer.colour).bold().apply_to(target));
             } else if self.debug == DebugMode::Full {
                 if let Some(file) = record.file() {
                     log_write!(enabled, writer, " {}{}",
