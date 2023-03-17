@@ -17,7 +17,7 @@ humanlog = { git = "https://github.com/Lut99/humanlog-rs", tag = "v0.1.0" }
 
 ### Updating
 If you want to update this crate after you've already added your dependencies, run:
-```toml
+```bash
 cargo update --package humanlog
 ```
 in your project to pull the most recent version. You can also omit the `--package humanlog` to update all packages.
@@ -135,12 +135,12 @@ if let Err(err) = HumanLogger::new(vec![ logger ], DebugMode::Debug).init() {
 }
 ```
 
-For more information, you can consult the [documentation](#documentation) or check some examples in the `examples` directory of this repository.
+For more information, you can consult the [documentation](#documentation) or check some examples in the [`examples`](/examples) directory of this repository.
 
 
 ## Contribution
-Feel free to open up an [issue](/issues) or a [pull request](/pulls) if you encounter bugs, have any suggestions or feedback. I'll look at them as soon as I can.
+Feel free to open up an [issue](https://github.com/Lut99/humanlog-rs/issues) or a [pull request](https://github.com/Lut99/humanlog-rs/pulls) if you encounter bugs, have any suggestions or feedback. I'll look at them as soon as I can.
 
 
 ## License
-This project is licensed under GPLv3. You can find more information in the `LICENSE` file.
+This project is licensed under GPLv3. You can find more information in the [`LICENSE`](/LICENSE) file.
