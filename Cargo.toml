@@ -11,3 +11,6 @@ chrono      = "0.4.23"
 console     = "0.15.5"
 log         = { version = "0.4.17", features = ["std"] }
 parking_lot = "0.12.1"
+
+[dev-dependencies]
+clap = { version = "4.1", features = ["derive"] }

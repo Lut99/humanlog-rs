@@ -4,7 +4,7 @@
 //  Created:
 //    12 Feb 2023, 13:39:26
 //  Last edited:
-//    03 Mar 2023, 18:51:51
+//    17 Mar 2023, 16:18:39
 //  Auto updated?
 //    Yes
 // 
@@ -51,6 +51,24 @@ macro_rules! log_writeln {
 }
 
 /// Flushes a given list of log writers.
+macro_rules! log_flush {
+    ($writers:expr) => {
+        for w in $writers {
+            let mut lock: MutexGuard<(bool, InternalLogWriter)> = w.lock();
+            let (enabled, writer): &mut (bool, InternalLogWriter) = lock.deref_mut();
+
+            // Skip if not enabled
+            if !*enabled { continue; }
+
+            // Flush the writer (or at least, try to)
+            if let Err(err) = writer.writer.flush() {
+                eprintln!("{}: Failed to flush writer '{}': {} (will not attempt again)", style("WARNING").yellow().bold(), writer.label, err);
+                *enabled = false;
+                continue;
+            }
+        }
+    }
+}
 
 
 
@@ -71,7 +89,7 @@ pub enum DebugMode {
     /// 
     /// // Setup the logger to write to the terminal with default settings and the prettiest (and least informative) debug mode
     /// if let Err(err) = HumanLogger::terminal(DebugMode::HumanFriendly).init() {
-    ///     eprintln!("WARNING: Failed to initialize logger: {} (no logging enabled for this session)", err);
+    ///     eprintln!("WARNING: Failed to initialize logger: {err} (no logging enabled for this session)");
     /// }
     /// 
     /// error!("This is an error!");
@@ -96,7 +114,7 @@ pub enum DebugMode {
     /// 
     /// // Setup the logger to write to the terminal with a server-level verbosity and formatting
     /// if let Err(err) = HumanLogger::terminal(DebugMode::Debug).init() {
-    ///     eprintln!("WARNING: Failed to initialize logger: {} (no logging enabled for this session)", err);
+    ///     eprintln!("WARNING: Failed to initialize logger: {err} (no logging enabled for this session)");
     /// }
     /// 
     /// error!("This is an error!");
@@ -123,7 +141,7 @@ pub enum DebugMode {
     /// 
     /// // Setup the logger to write to the terminal with the most verbose and extensive mode available.
     /// if let Err(err) = HumanLogger::terminal(DebugMode::Full).init() {
-    ///     eprintln!("WARNING: Failed to initialize logger: {} (no logging enabled for this session)", err);
+    ///     eprintln!("WARNING: Failed to initialize logger: {err} (no logging enabled for this session)");
     /// }
     /// 
     /// error!("This is an error!");
@@ -142,6 +160,100 @@ pub enum DebugMode {
     /// [2023-03-03T18:11:37.853507184+01:00 TRACE examples/full.rs:31 full] This is a trace message!
     /// ```
     Full,
+}
+impl DebugMode {
+    /// Converts two flags (i.e., boolean values) to a suitable DebugMode.
+    /// 
+    /// Assumes that `trace` outplays `debug`, i.e., if `trace` is true, then `debug` is ignored.
+    /// 
+    /// # Arguments
+    /// - `trace`: If true, will return `DebugMode::Full`.
+    /// - `debug`: If `trace` is false and `debug` is true, will return `DebugMode::Debug`.
+    /// 
+    /// # Returns
+    /// A new `DebugMode` that matches the given boolean values, or else `DebugMode::HumanFriendly`.
+    /// 
+    /// # Examples
+    /// ```rust
+    /// // We use [clap](https://docs.rs/clap/latest/clap/) to parse command-line arguments
+    /// // Enable the `derive` feature
+    /// use clap::Parser;
+    /// use humanlog::{DebugMode, HumanLogger};
+    /// use log::{debug, info};
+    /// 
+    /// /// Defines the command-line arguments for this executable.
+    /// #[derive(Parser)]
+    /// struct Arguments {
+    ///     /// Will change to `DebugMode::Debug`
+    ///     #[clap(long, global=true)]
+    ///     debug: bool,
+    ///     /// Will change to `DebugMode::Full`
+    ///     #[clap(long, global=true)]
+    ///     trace: bool,
+    /// }
+    /// 
+    /// fn main() {
+    ///     // Parse the arguments
+    ///     let args = Arguments::parse();
+    /// 
+    ///     // Enable the correct debugging mode based on the values
+    ///     if let Err(err) = HumanLogger::terminal(DebugMode::from_flags(args.debug, args.trace)).init() {
+    ///         eprintln!("WARNING: Failed to setup logger: {err} (no logging enabled for this session)");
+    ///     }
+    ///     info!("Successfully setup HumanLogger!");
+    ///     debug!("Time to crime...");
+    /// }
+    /// ```
+    #[inline]
+    pub fn from_flags(trace: bool, debug: bool) -> Self { Self::from_num(2 * (trace as u32) + (debug as u32)) }
+
+    /// Converts a numerical value to a suitable DebugMode.
+    /// 
+    /// # Arguments
+    /// - `num`: The numerical value to parse from.
+    /// 
+    /// # Returns
+    /// A new `DebugMode` matching the value. Specifically:
+    /// - if `num == 0`, then `DebugMode::HumanFriendly` is returned.
+    /// - if `num == 1`, then `DebugMode::Debug` is returned.
+    /// - if `num >= 2`, then `DebugMode::Full` is returned.
+    /// 
+    /// # Examples
+    /// ```rust
+    /// // We use [clap](https://docs.rs/clap/latest/clap/) to parse command-line arguments
+    /// // Enable the `derive` feature
+    /// use clap::Parser;
+    /// use humanlog::{DebugMode, HumanLogger};
+    /// use log::{debug, info};
+    /// 
+    /// /// Defines the command-line arguments for this executable.
+    /// #[derive(Parser)]
+    /// struct Arguments {
+    ///     /// Defines the level to parse.
+    ///     #[clap(short, long, default_value="0")]
+    ///     verbosity : u32,
+    /// }
+    /// 
+    /// fn main() {
+    ///     // Parse the arguments
+    ///     let args = Arguments::parse();
+    /// 
+    ///     // Enable the correct debugging mode based on the values
+    ///     if let Err(err) = HumanLogger::terminal(DebugMode::from_num(args.verbosity)).init() {
+    ///         eprintln!("WARNING: Failed to setup logger: {err} (no logging enabled for this session)");
+    ///     }
+    ///     info!("Successfully setup HumanLogger!");
+    ///     debug!("Time to crime...");
+    /// }
+    /// ```
+    #[inline]
+    pub fn from_num(num: u32) -> Self {
+        match num {
+            0 => DebugMode::HumanFriendly,
+            1 => DebugMode::Debug,
+            _ => DebugMode::Full,
+        }
+    }
 }
 
 
@@ -199,7 +311,7 @@ impl ColourChoice {
 /// 
 /// let logger: LogWriter = LogWriter::new(std::io::stdout(), ColourChoice::Auto, vec![ Level::Error, Level::Warn, Level::Info, Level::Debug, Level::Trace ], "stdout");
 /// if let Err(err) = HumanLogger::new(vec![ logger ], DebugMode::Debug).init() {
-///     eprintln!("WARNING: Failed to initialize logger: {} (no logging enabled for this session)", err);
+///     eprintln!("WARNING: Failed to initialize logger: {err} (no logging enabled for this session)");
 /// }
 /// ```
 /// 
@@ -215,12 +327,12 @@ impl ColourChoice {
 ///         // Use that to create a writer that receives everything
 ///         let logger: LogWriter = LogWriter::new(handle, ColourChoice::No, vec![ Level::Error, Level::Warn, Level::Info, Level::Debug, Level::Trace ], "file");
 ///         if let Err(err) = HumanLogger::new(vec![ logger ], DebugMode::Debug).init() {
-///             eprintln!("WARNING: Failed to initialize logger: {} (no logging enabled for this session)", err);
+///             eprintln!("WARNING: Failed to initialize logger: {err} (no logging enabled for this session)");
 ///         }
 ///     },
 ///
 ///     Err(err) => {
-///         eprintln!("WARNING: Failed to initialize logger: Failed to create file 'output.log': {} (no logging enabled for this session)", err);
+///         eprintln!("WARNING: Failed to initialize logger: Failed to create file 'output.log': {err} (no logging enabled for this session)");
 ///     },
 /// }
 /// ```
@@ -242,12 +354,12 @@ impl ColourChoice {
 /// 
 ///         // Finally, we put it all in one logger
 ///         if let Err(err) = HumanLogger::new(vec![ stdout_logger, stderr_logger, file_logger ], DebugMode::Debug).init() {
-///             eprintln!("WARNING: Failed to initialize logger: {} (no logging enabled for this session)", err);
+///             eprintln!("WARNING: Failed to initialize logger: {err} (no logging enabled for this session)");
 ///         }
 ///     },
 /// 
 ///     Err(err) => {
-///         eprintln!("WARNING: Failed to initialize logger: Failed to create file 'output.log': {} (no logging enabled for this session)", err);
+///         eprintln!("WARNING: Failed to initialize logger: Failed to create file 'output.log': {err} (no logging enabled for this session)");
 ///     },
 /// }
 /// ```
@@ -272,11 +384,10 @@ impl LogWriter {
     /// # Examples
     /// ```rust
     /// use humanlog::{DebugMode, HumanLogger, LogWriter};
-    /// use log::{debug, info, error, Level};
     /// 
     /// // Will emulate the default behaviour of writing `Level::Error` and `Level::Warn` to stderr, the rest to stdout.
     /// if let Err(err) = HumanLogger::new(vec![ LogWriter::stdout(), LogWriter::stderr() ], DebugMode::Debug).init() {
-    ///     eprintln!("WARNING: Failed to initialize logger: {} (no logging enabled for this session)", err);
+    ///     eprintln!("WARNING: Failed to initialize logger: {err} (no logging enabled for this session)");
     /// }
     /// ```
     #[inline]
@@ -292,11 +403,10 @@ impl LogWriter {
     /// # Examples
     /// ```rust
     /// use humanlog::{DebugMode, HumanLogger, LogWriter};
-    /// use log::{debug, info, error, Level};
     /// 
     /// // Will emulate the default behaviour of writing `Level::Error` and `Level::Warn` to stderr, the rest to stdout.
     /// if let Err(err) = HumanLogger::new(vec![ LogWriter::stdout(), LogWriter::stderr() ], DebugMode::Debug).init() {
-    ///     eprintln!("WARNING: Failed to initialize logger: {} (no logging enabled for this session)", err);
+    ///     eprintln!("WARNING: Failed to initialize logger: {err} (no logging enabled for this session)");
     /// }
     /// ```
     #[inline]
@@ -316,12 +426,12 @@ impl LogWriter {
     /// # Examples
     /// ```rust
     /// use humanlog::{ColourChoice, DebugMode, HumanLogger, LogWriter};
-    /// use log::{debug, info, error, Level};
+    /// use log::Level;
     /// 
     /// // Will only ever write to stdout, regardless of the log type
     /// let logger: LogWriter = LogWriter::new(std::io::stdout(), ColourChoice::Auto, vec![ Level::Error, Level::Warn, Level::Info, Level::Debug, Level::Trace ], "stdout");
     /// if let Err(err) = HumanLogger::new(vec![ logger ], DebugMode::Debug).init() {
-    ///     eprintln!("WARNING: Failed to initialize logger: {} (no logging enabled for this session)", err);
+    ///     eprintln!("WARNING: Failed to initialize logger: {err} (no logging enabled for this session)");
     /// }
     /// ```
     #[inline]
@@ -384,12 +494,24 @@ pub struct HumanLogger {
 impl HumanLogger {
     /// Constructor for the HumanLogger that will log to the given set of `Write`rs.
     /// 
+    /// Don't forget to also install the Logger at some point using `HumanLogger::init()`.
+    /// 
     /// # Arguments
     /// - `writers`: A list of writers to write to. You can configure for each of them if they should add ANSI colours to their output or not, and which log levels need to be written to them.
     /// - `debug`: Whether to enable debug mode or not.
     /// 
     /// # Returns
     /// A new HumanLogger instance that can then be installed in the `log`-crate.
+    /// 
+    /// # Examples
+    /// ```rust
+    /// use humanlog::{DebugMode, HumanLogger, LogWriter};
+    /// 
+    /// // Will emulate the default behaviour of writing `Level::Error` and `Level::Warn` to stderr, the rest to stdout.
+    /// if let Err(err) = HumanLogger::new(vec![ LogWriter::stdout(), LogWriter::stderr() ], DebugMode::Debug).init() {
+    ///     eprintln!("WARNING: Failed to initialize logger: {err} (no logging enabled for this session)");
+    /// }
+    /// ```
     pub fn new(writers: impl IntoIterator<Item = LogWriter>, debug: DebugMode) -> Self {
         // Sort the given writers into the given lists
         let mut error_writers : Vec<Arc<Mutex<(bool, InternalLogWriter)>>> = vec![];
@@ -399,7 +521,7 @@ impl HumanLogger {
         let mut trace_writers : Vec<Arc<Mutex<(bool, InternalLogWriter)>>> = vec![];
         for writer in writers.into_iter() {
             // Create the base arc
-            let filters : Vec<Level> = writer.filter;
+            let filters : Vec<Level> = writer.filter.clone();
             let writer  : Arc<Mutex<(bool, InternalLogWriter)>> = Arc::new(Mutex::new((true, writer.into())));
 
             // Add it to any list it wants
@@ -432,11 +554,23 @@ impl HumanLogger {
     /// 
     /// For more customization options, use `HumanLogger::new()` with a list of `LogWriter`s.
     /// 
+    /// Don't forget to also install the Logger at some point using `HumanLogger::init()`.
+    /// 
     /// # Arguments
     /// - `mode`: The mode of debugging to use for this session. Decides both which `Level`s to apply, and how to format the resulting messages.
     /// 
     /// # Returns
     /// A new HumanLogger that will log to stdout and stderr.
+    /// 
+    /// # Examples
+    /// ```rust
+    /// use humanlog::{DebugMode, HumanLogger};
+    /// 
+    /// // Will emulate the default behaviour of writing `Level::Error` and `Level::Warn` to stderr, the rest to stdout.
+    /// if let Err(err) = HumanLogger::terminal(DebugMode::Debug).init() {
+    ///     eprintln!("WARNING: Failed to initialize logger: {err} (no logging enabled for this session)");
+    /// }
+    /// ```
     #[inline]
     pub fn terminal(mode: DebugMode) -> Self { Self::new(vec![ LogWriter::stdout(), LogWriter::stderr() ], mode) }
 
@@ -449,7 +583,15 @@ impl HumanLogger {
     /// 
     /// # Examples
     /// ```rust
+    /// use humanlog::{DebugMode, HumanLogger};
     /// 
+    /// // Let's create a logger
+    /// let logger: HumanLogger = HumanLogger::terminal(DebugMode::HumanFriendly);
+    /// 
+    /// // Enable it
+    /// if let Err(err) = logger.init() {
+    ///     eprintln!("WARNING: Failed to initialize logger: {err} (no logging enabled for this session)");
+    /// }
     /// ```
     pub fn init(self) -> Result<(), SetLoggerError> {
         // Set the logger
@@ -546,18 +688,10 @@ impl Log for HumanLogger {
 
     fn flush(&self) {
         // Flush all the writers if they are enabled
-        for w in &self.error_writers {
-            let mut lock: MutexGuard<(bool, InternalLogWriter)> = w.lock();
-
-            // Skip if not enabled
-            if !lock.0 { continue; }
-
-            // Attempt to flush
-            if let Err(err) = lock.1.writer.flush() {
-                eprintln!("{}: Failed to flush writer '{}': {} (will not attempt again)", style("WARNING").yellow().bold(), lock.1.label, err);
-                lock.0 = false;
-                continue;
-            }
-        }
+        log_flush!(&self.error_writers);
+        log_flush!(&self.warn_writers);
+        log_flush!(&self.info_writers);
+        log_flush!(&self.debug_writers);
+        log_flush!(&self.trace_writers);
     }
 }
