@@ -7,7 +7,6 @@ description = "A simple implementation for the [log](https://https//docs.rs/log/
 license = "Apache-2.0"
 
 [dependencies]
-atty        = "0.2.14"
 chrono      = "0.4.23"
 console     = "0.15.5"
 log         = { version = "0.4.17", features = ["std"] }

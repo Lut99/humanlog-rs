@@ -16,11 +16,10 @@
 // 
 
 use std::any::Any;
-use std::io::{Stderr, Stdin, Stdout, Write};
+use std::io::{IsTerminal, Stderr, Stdin, Stdout, Write};
 use std::ops::DerefMut as _;
 use std::sync::Arc;
 
-use atty::Stream;
 use chrono::Local;
 use console::{style, Style};
 use log::{Level, LevelFilter, Log, SetLoggerError};
@@ -284,11 +283,11 @@ impl ColourChoice {
 
             // Then the hard one
             ColourChoice::Auto => if (writer as &dyn Any).downcast_ref::<Stdin>().is_some() {
-                atty::is(Stream::Stdin)
+                std::io::stdin().is_terminal()
             } else if (writer as &dyn Any).downcast_ref::<Stderr>().is_some() {
-                atty::is(Stream::Stderr)
+                std::io::stderr().is_terminal()
             } else if (writer as &dyn Any).downcast_ref::<Stdout>().is_some() {
-                atty::is(Stream::Stdout)
+                std::io::stdout().is_terminal()
             } else {
                 false
             }
