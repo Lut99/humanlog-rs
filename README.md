@@ -143,4 +143,4 @@ Feel free to open up an [issue](https://github.com/Lut99/humanlog-rs/issues) or 
 
 
 ## License
-This project is licensed under GPLv3. You can find more information in the [`LICENSE`](/LICENSE) file.
+This project is now licensed under Apache 2.0. You can find more information in the [`LICENSE`](/LICENSE) file.
