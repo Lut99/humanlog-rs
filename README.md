@@ -12,7 +12,7 @@ This will use the most cutting-edge version (i.e., the `master` branch).
 
 You can also commit to a specific version instead by using the `tag`-selector:
 ```toml
-humanlog = { git = "https://github.com/Lut99/humanlog-rs", tag = "v0.1.0" }
+humanlog = { git = "https://github.com/Lut99/humanlog-rs", tag = "v0.2.0" }
 ```
 
 ### Updating

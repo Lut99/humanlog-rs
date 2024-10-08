@@ -1,6 +1,6 @@
 [package]
 name = "humanlog"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 authors = [ "Lut99" ]
 description = "A simple implementation for the [log](https://https//docs.rs/log/latest/log/) crate that aims to have a pretty, user-friendly mode, and a comprehensive, dev-friendly _debug_ mode."
